@@ -1,0 +1,27 @@
+name: XGBoost AI Trading Bot
+
+on:
+  workflow_dispatch: # This creates the manual "Run workflow" button
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+           
+      - name: Install dependencies
+        # Using the upgraded command to bypass Yahoo Finance security walls!
+        run: pip install --upgrade --no-cache-dir -r requirements.txt
+         
+      - name: Run AI script
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        # The -u flag forces Python to print to your screen instantly
+        run: python -u main.py
