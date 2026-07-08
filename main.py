@@ -24,7 +24,7 @@ else:
 def prepare_data(ticker_symbol):
     """Fetches data, creates Advanced Features, and creates the Target"""
     ticker = yf.Ticker(ticker_symbol)
-    df = ticker.history(period="60d", interval="15m")
+    df = ticker.history(period="60d", interval="1m")
     
     if df.empty:
         return None
@@ -72,7 +72,7 @@ def run_ml_bot(ticker_symbol):
     entry_price = 0.0
     last_processed_timestamp = None
     
-    print(f"Live AI Tracking Active. Running checks every 15 minutes...")
+    print(f"Live AI Tracking Active. Running checks every 5 minutes...")
     print(f"{'Time (IST)':<10} | {'Live Price':<10} | {'AI Confidence':<14} | {'Signal':<13} | {'Action'}")
     print("-" * 85)
 
@@ -173,4 +173,4 @@ def run_ml_bot(ticker_symbol):
         time.sleep(300)
 
 if __name__ == "__main__":
-    run_ml_bot("")
+    run_ml_bot("CL=F")
