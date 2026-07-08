@@ -173,4 +173,4 @@ def run_ml_bot(ticker_symbol):
         time.sleep(300)
 
 if __name__ == "__main__":
-    run_ml_bot("CL=F")
+    run_ml_bot("USDEUR=X")
