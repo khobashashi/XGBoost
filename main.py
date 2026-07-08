@@ -24,7 +24,7 @@ else:
 def prepare_data(ticker_symbol):
     """Fetches data, creates Advanced Features, and creates the Target"""
     ticker = yf.Ticker(ticker_symbol)
-    df = ticker.history(period="60d", interval="1m")
+    df = ticker.history(period="60d", interval="15m")
     
     if df.empty:
         return None
