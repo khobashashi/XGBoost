@@ -22,30 +22,47 @@ else:
     trading_client = None
 
 def prepare_data(ticker_symbol):
-    """Fetches data, creates Features (clues), and creates the Target (answers)"""
-    # Pull 60 days of 15-minute data to give the AI enough history to learn from
+    """Fetches data, creates Advanced Features (clues), and creates the Target"""
     df = yf.download(ticker_symbol, period="60d", interval="15m", progress=False)
     
     if df.empty:
         return None
         
-    # --- 1. FEATURE ENGINEERING (The Clues) ---
-    # We give the AI moving averages, volatility, and momentum
-    df['SMA_10'] = df['Close'].rolling(window=10).mean()
-    df['SMA_30'] = df['Close'].rolling(window=30).mean()
-    df['Price_to_SMA'] = df['Close'] / df['SMA_10']
-    df['Volatility'] = df['Close'].rolling(window=10).std()
+    # --- 1. RSI (Momentum / Overbought & Oversold) ---
+    delta = df['Close'].diff()
+    # Using Wilder's Smoothing for true RSI calculation
+    gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+
+    # --- 2. MACD (Trend Direction & Strength) ---
+    df['EMA_12'] = df['Close'].ewm(span=12, adjust=False).mean()
+    df['EMA_26'] = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = df['EMA_12'] - df['EMA_26']
+    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    df['MACD_Histogram'] = df['MACD'] - df['MACD_Signal']
+
+    # --- 3. BOLLINGER BANDS (Volatility & Snap-back points) ---
+    df['SMA_20'] = df['Close'].rolling(window=20).mean()
+    df['Std_Dev_20'] = df['Close'].rolling(window=20).std()
+    df['BB_Upper'] = df['SMA_20'] + (df['Std_Dev_20'] * 2)
+    df['BB_Lower'] = df['SMA_20'] - (df['Std_Dev_20'] * 2)
+    
+    # We feed the AI the "Width" of the bands and how close the price is to the bottom
+    df['BB_Width'] = df['BB_Upper'] - df['BB_Lower']
+    df['Price_to_BB_Lower'] = df['Close'] - df['BB_Lower']
+    
+    # --- 4. BASIC PRICE ACTION ---
     df['Returns'] = df['Close'].pct_change()
     
-    # --- 2. TARGET CREATION (The Answer Key) ---
-    # If the NEXT 15-minute candle's close is higher than the CURRENT close, Target = 1 (UP)
-    # Otherwise, Target = 0 (DOWN)
+    # --- 5. TARGET CREATION (The Answer Key) ---
+    # If the NEXT candle closes higher, Target = 1. Else, Target = 0.
     df['Target'] = (df['Close'].shift(-1) > df['Close']).astype(int)
     
-    # Drop rows with NaN values created by moving averages and shifting
+    # Drop all rows that have blank data from the rolling calculations
     df = df.dropna()
     return df
-
 def run_ml_bot(ticker_symbol):
     print(f"Initializing XGBoost Machine Learning Model for {ticker_symbol}...")
     
@@ -75,7 +92,14 @@ def run_ml_bot(ticker_symbol):
                     live_candle = df.iloc[[-1]] 
                     
                     # Define our feature columns
-                    features = ['SMA_10', 'SMA_30', 'Price_to_SMA', 'Volatility', 'Returns']
+                    features = [
+                        'RSI', 
+                        'MACD', 
+                        'MACD_Histogram', 
+                        'BB_Width', 
+                        'Price_to_BB_Lower', 
+                        'Returns'
+                    ]
                     
                     X_train = train_df[features]
                     y_train = train_df['Target']
